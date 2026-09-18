@@ -1,6 +1,6 @@
 # Documentation
 
-Background reading for `meet-common-settings`. The top-level [README](../README.md) is the quick-start; this folder is for people who need to understand the service in depth.
+Background reading for `meet-side-service`. The top-level [README](../README.md) is the quick-start; this folder is for people who need to understand the service in depth.
 
 - [Architecture](architecture.md) — what the service does, how messages flow, why we made the choices we did.
 - [Operations](operations.md) — deploying, monitoring, alerting, and what to do when something is wrong.

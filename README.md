@@ -1,4 +1,4 @@
-# meet-common-settings
+# meet-side-service
 
 Sidecar service that consumes user settings update messages from the Twake Workplace common-settings RabbitMQ exchange and applies the changes to Meet's PostgreSQL database.
 
@@ -21,29 +21,29 @@ Sidecar service that consumes user settings update messages from the Twake Workp
 
 All configuration is via environment variables. See `.env.example` for defaults.
 
-| Variable | Required | Default | Purpose |
-|---|---|---|---|
-| `RABBITMQ_URL` | yes | — | AMQP DSN |
-| `RABBITMQ_EXCHANGE` | no | `settings` | Topic exchange to bind to |
-| `RABBITMQ_ROUTING_KEY` | no | `user.settings.updated` | Binding key |
-| `RABBITMQ_QUEUE` | no | `meet.user_settings` | Consumer queue name |
-| `RABBITMQ_PREFETCH` | no | `1` | QoS prefetch count |
-| `DATABASE_URL` | yes | — | PostgreSQL DSN for the Meet database |
-| `MEET_USER_TABLE` | no | `meet_user` | User table override (defensive) |
-| `LANGUAGE_MAP_OVERRIDES` | no | `{}` | JSON map of additional ISO → Django language codes |
-| `LOG_LEVEL` | no | `info` | pino log level |
-| `HEALTH_PORT` | no | `8080` | HTTP port for probes and metrics |
-| `SHUTDOWN_TIMEOUT_MS` | no | `10000` | Grace period on SIGTERM |
+| Variable                 | Required | Default                 | Purpose                                            |
+| ------------------------ | -------- | ----------------------- | -------------------------------------------------- |
+| `RABBITMQ_URL`           | yes      | —                       | AMQP DSN                                           |
+| `RABBITMQ_EXCHANGE`      | no       | `settings`              | Topic exchange to bind to                          |
+| `RABBITMQ_ROUTING_KEY`   | no       | `user.settings.updated` | Binding key                                        |
+| `RABBITMQ_QUEUE`         | no       | `meet.user_settings`    | Consumer queue name                                |
+| `RABBITMQ_PREFETCH`      | no       | `1`                     | QoS prefetch count                                 |
+| `DATABASE_URL`           | yes      | —                       | PostgreSQL DSN for the Meet database               |
+| `MEET_USER_TABLE`        | no       | `meet_user`             | User table override (defensive)                    |
+| `LANGUAGE_MAP_OVERRIDES` | no       | `{}`                    | JSON map of additional ISO → Django language codes |
+| `LOG_LEVEL`              | no       | `info`                  | pino log level                                     |
+| `HEALTH_PORT`            | no       | `8080`                  | HTTP port for probes and metrics                   |
+| `SHUTDOWN_TIMEOUT_MS`    | no       | `10000`                 | Grace period on SIGTERM                            |
 
 The Postgres role used by the service should be granted only `SELECT, UPDATE (language, timezone, updated_at) ON meet_user`. No `INSERT` or `DELETE` is performed.
 
 ## HTTP endpoints
 
-| Path | Purpose |
-|---|---|
-| `GET /healthz` | Liveness: returns 200 while the process is alive |
-| `GET /readyz` | Readiness: 200 once the consumer is connected and the database responds to `SELECT 1` |
-| `GET /metrics` | Prometheus metrics (process metrics + `mcs_messages_processed_total{outcome=...}`, `mcs_message_latency_seconds`, `mcs_db_errors_total`) |
+| Path           | Purpose                                                                                                                                  |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /healthz` | Liveness: returns 200 while the process is alive                                                                                         |
+| `GET /readyz`  | Readiness: 200 once the consumer is connected and the database responds to `SELECT 1`                                                    |
+| `GET /metrics` | Prometheus metrics (process metrics + `mss_messages_processed_total{outcome=...}`, `mss_message_latency_seconds`, `mss_db_errors_total`) |
 
 ## Development
 

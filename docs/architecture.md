@@ -6,13 +6,13 @@ Twake Workplace has a central **common-settings** service where users edit their
 
 Meet (the LiveKit-based video conferencing app) is one of those applications. It stores its own copy of a user's language and timezone in PostgreSQL. Until now, those values only got refreshed when the user logged into Meet again, because Meet pulls them from OIDC userinfo claims at sign-in time. That meant a user could change their language in common-settings and still see the old language in Meet until the next login.
 
-`meet-common-settings` closes that gap. It is a small sidecar that listens to the common-settings exchange and writes the changed fields into Meet's database in near real time. Meet itself is untouched.
+`meet-side-service` closes that gap. It is a small sidecar that listens to the common-settings exchange and writes the changed fields into Meet's database in near real time. Meet itself is untouched.
 
 ## How it fits together
 
 ```
 ┌────────────────────┐    AMQP (topic)    ┌────────────────────────┐    SQL    ┌────────────┐
-│  common-settings   │ ─────────────────► │  meet-common-settings  │ ────────► │  Meet PG   │
+│  common-settings   │ ─────────────────► │  meet-side-service     │ ────────► │  Meet PG   │
 │   (publisher)      │  settings          │   (this service)       │  UPDATE   │  meet_user │
 │                    │  user.settings     │   1 replica            │  by email │            │
 │                    │  .updated          │                        │           │            │
@@ -49,13 +49,13 @@ If a settings message arrives for a user who has never logged into Meet (and the
 
 ## Which fields we sync
 
-| Common-settings payload | Meet column | Notes |
-|---|---|---|
-| `language` (ISO 639-1, e.g. `"en"`) | `meet_user.language` | Mapped to Django's `LANGUAGES` codes (`en-us`, `fr-fr`, `nl-nl`, `de-de`, `ru-ru`, `vi-vn`). Unsupported codes are dropped, not raised. |
-| `timezone` (IANA, e.g. `"Europe/Paris"`) | `meet_user.timezone` | Passed through unchanged. |
-| `avatar` | — | Ignored. Meet has no avatar field; adding one is a separate, larger project. |
-| `display_name` | — | Ignored. Meet's `full_name` and `short_name` are populated from OIDC userinfo on every login; writing them here would race with the OIDC backend. |
-| Everything else | — | Ignored. |
+| Common-settings payload                  | Meet column          | Notes                                                                                                                                             |
+| ---------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `language` (ISO 639-1, e.g. `"en"`)      | `meet_user.language` | Mapped to Django's `LANGUAGES` codes (`en-us`, `fr-fr`, `nl-nl`, `de-de`, `ru-ru`, `vi-vn`). Unsupported codes are dropped, not raised.           |
+| `timezone` (IANA, e.g. `"Europe/Paris"`) | `meet_user.timezone` | Passed through unchanged.                                                                                                                         |
+| `avatar`                                 | —                    | Ignored. Meet has no avatar field; adding one is a separate, larger project.                                                                      |
+| `display_name`                           | —                    | Ignored. Meet's `full_name` and `short_name` are populated from OIDC userinfo on every login; writing them here would race with the OIDC backend. |
+| Everything else                          | —                    | Ignored.                                                                                                                                          |
 
 ## Idempotency and ordering
 
@@ -69,17 +69,17 @@ That gives us strict serial processing without any application-side state.
 
 ## Failure modes and what they mean
 
-The handler classifies every outcome into one of seven labels, all reported as `mcs_messages_processed_total{outcome=...}`:
+The handler classifies every outcome into one of seven labels, all reported as `mss_messages_processed_total{outcome=...}`:
 
-| Outcome | What it means | Ack? |
-|---|---|---|
-| `updated` | Found the user, applied the change. | Yes |
-| `unknown_user` | No row matched the email. User probably hasn't logged into Meet yet. | Yes |
-| `no_email` | Message had no email field. Can't match anyone. | Yes |
-| `no_syncable_fields` | Message had no language or timezone (or only an unsupported language code). | Yes |
-| `invalid_payload` | JSON parsed but failed schema validation. | Yes (poison) |
-| `db_error` | Postgres returned a transient error (connection refused, deadlock, etc.). | Throw → library retries with backoff, then DLQs |
-| `unexpected_error` | Postgres returned a permanent error (column missing, etc.). | Yes |
+| Outcome              | What it means                                                               | Ack?                                            |
+| -------------------- | --------------------------------------------------------------------------- | ----------------------------------------------- |
+| `updated`            | Found the user, applied the change.                                         | Yes                                             |
+| `unknown_user`       | No row matched the email. User probably hasn't logged into Meet yet.        | Yes                                             |
+| `no_email`           | Message had no email field. Can't match anyone.                             | Yes                                             |
+| `no_syncable_fields` | Message had no language or timezone (or only an unsupported language code). | Yes                                             |
+| `invalid_payload`    | JSON parsed but failed schema validation.                                   | Yes (poison)                                    |
+| `db_error`           | Postgres returned a transient error (connection refused, deadlock, etc.).   | Throw → library retries with backoff, then DLQs |
+| `unexpected_error`   | Postgres returned a permanent error (column missing, etc.).                 | Yes                                             |
 
 The "throw → retry → DLQ" path is provided by `@linagora/rabbitmq-client`: it catches the thrown error, retries up to `RABBITMQ_MAX_RETRIES` times with `RABBITMQ_RETRY_DELAY` ms between attempts, then nacks to the dead-letter queue. The library also has reconnection logic for total broker outages.
 

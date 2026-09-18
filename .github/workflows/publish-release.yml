@@ -19,8 +19,8 @@ jobs:
       - name: Publish to GitHub Container Registry
         uses: elgohr/Publish-Docker-Github-Action@v5
         with:
-          name: linagora/meet-common-settings
+          name: linagora/meet-side-service
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
           registry: ghcr.io
-          tags: "${{ steps.version.outputs.release-version }}"
+          tags: '${{ steps.version.outputs.release-version }}'
