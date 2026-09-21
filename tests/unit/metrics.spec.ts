@@ -13,6 +13,7 @@ describe('createMetrics', () => {
         'mss_messages_processed_total',
         'mss_message_latency_seconds',
         'mss_db_errors_total',
+        'mss_entitlement_calls_total',
       ]),
     );
     expect(names.some((n) => n.startsWith('mcs_'))).toBe(false);
