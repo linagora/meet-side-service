@@ -83,6 +83,18 @@ The handler classifies every outcome into one of seven labels, all reported as `
 
 The "throw → retry → DLQ" path is provided by `@linagora/rabbitmq-client`: it catches the thrown error, retries up to `RABBITMQ_MAX_RETRIES` times with `RABBITMQ_RETRY_DELAY` ms between attempts, then nacks to the dead-letter queue. The library also has reconnection logic for total broker outages.
 
+## Entitlements
+
+The same process keeps LinTO Studio's entitlements in step with Twake plans, so Meet can gate transcription and recording. Each event has its own queue and maps to exactly one Studio call. [ADR 061](https://github.com/linagora/twake-workplace-private/pull/1745) has the reasoning. It is off by default and switched on with `ENTITLEMENTS_ENABLED`; see [operations](operations.md#turning-entitlements-on-or-off).
+
+- `billing` / `subscription.changed`: `PUT /users/{internalEmail}` with the plan's `meet` block.
+- `billing` / `domain.subscription.changed`: `PUT /domains/{domain}` with the plan's `meet` block.
+- `b2b` / `domain.user.deleted`: `DELETE /users/{internalEmail}`.
+- `auth` / `user.deletion.requested`: `DELETE /users/{email}`.
+- `b2b` / `domain.organization.deleted`: `PUT /domains/{domain}` with no rights.
+
+`updatedAt` is the publish timestamp. A message published without one falls back to its first death time when replayed from its DLQ, and to the receipt time otherwise. Anything Studio does not apply is retried, then dead-lettered, never acked.
+
 ## Why a sidecar instead of merging into common-settings
 
 Each downstream app has its own data model and its own way of representing users. If common-settings carried the fan-out responsibility, it would need to know how to talk to every other app's database, OIDC mapping, validation rules, and schema. Keeping the consumer adjacent to the app it writes to keeps that knowledge in one place. The pattern is repeatable: future apps can copy this service's shape and adapt the handler.

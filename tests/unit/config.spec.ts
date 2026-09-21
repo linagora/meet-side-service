@@ -6,6 +6,14 @@ const baseEnv = {
   DATABASE_URL: 'postgres://localhost/meet',
 };
 
+const entitlementsEnv = {
+  ...baseEnv,
+  ENTITLEMENTS_ENABLED: 'true',
+  LINTO_STUDIO_API_URL: 'https://studio.example.com',
+  LINTO_ENTITLEMENTS_TOKEN: 'token',
+  LINTO_TWAKE_ORG_ID: 'org',
+};
+
 describe('loadConfig', () => {
   it('returns defaults for optional fields', () => {
     const cfg = loadConfig(baseEnv);
@@ -21,6 +29,37 @@ describe('loadConfig', () => {
 
   it('throws when RABBITMQ_URL is missing', () => {
     expect(() => loadConfig({ DATABASE_URL: 'postgres://x' })).toThrow(/RABBITMQ_URL/);
+  });
+
+  it('leaves entitlements off without any LinTO setting', () => {
+    expect(loadConfig(baseEnv).ENTITLEMENTS_ENABLED).toBe(false);
+    expect(loadConfig({ ...baseEnv, ENTITLEMENTS_ENABLED: 'false' }).ENTITLEMENTS_ENABLED).toBe(
+      false,
+    );
+  });
+
+  it('treats empty LinTO settings as unset while entitlements are off', () => {
+    const env = { ...baseEnv, LINTO_STUDIO_API_URL: '', LINTO_ENTITLEMENTS_TOKEN: '' };
+    expect(loadConfig(env).LINTO_STUDIO_API_URL).toBeUndefined();
+    expect(() => loadConfig({ ...entitlementsEnv, LINTO_STUDIO_API_URL: '' })).toThrow(
+      /LINTO_STUDIO_API_URL: required when ENTITLEMENTS_ENABLED=true/,
+    );
+  });
+
+  it('enables entitlements with the LinTO settings', () => {
+    expect(loadConfig(entitlementsEnv).ENTITLEMENTS_ENABLED).toBe(true);
+  });
+
+  it('requires every LinTO setting when entitlements are enabled', () => {
+    expect(() => loadConfig({ ...entitlementsEnv, LINTO_ENTITLEMENTS_TOKEN: undefined })).toThrow(
+      /LINTO_ENTITLEMENTS_TOKEN: required when ENTITLEMENTS_ENABLED=true/,
+    );
+  });
+
+  it('rejects a toggle that is not true or false', () => {
+    expect(() => loadConfig({ ...entitlementsEnv, ENTITLEMENTS_ENABLED: 'yes' })).toThrow(
+      /ENTITLEMENTS_ENABLED/,
+    );
   });
 
   it('throws when DATABASE_URL is missing', () => {

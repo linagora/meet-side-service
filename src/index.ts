@@ -1,4 +1,5 @@
 import { createDbClient } from './clients/db.js';
+import { createLintoClient } from './clients/linto.js';
 import { loadConfig } from './config.js';
 import { createConsumer } from './consumers/index.js';
 import { createHealthServer } from './health.js';
@@ -16,7 +17,15 @@ const main = async (): Promise<void> => {
   });
   const metrics = createMetrics();
   const mapLanguage = buildLanguageMapper(config.LANGUAGE_MAP_OVERRIDES);
-  const consumer = createConsumer({ config, db, mapLanguage, logger, metrics });
+  // loadConfig guarantees the LINTO_* values are set when entitlements are enabled.
+  const linto = config.ENTITLEMENTS_ENABLED
+    ? createLintoClient({
+        baseUrl: config.LINTO_STUDIO_API_URL!,
+        token: config.LINTO_ENTITLEMENTS_TOKEN!,
+        organizationId: config.LINTO_TWAKE_ORG_ID!,
+      })
+    : undefined;
+  const consumer = createConsumer({ config, db, mapLanguage, logger, metrics, linto });
   const health = createHealthServer({
     port: config.HEALTH_PORT,
     consumer,

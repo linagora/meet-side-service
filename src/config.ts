@@ -2,6 +2,11 @@ import { z } from 'zod';
 
 const positiveInt = z.coerce.number().int().positive();
 
+// A chart that templates an unset value renders it as "", which must not fail
+// validation while the feature that needs it is off.
+const unsetWhenEmpty = <T extends z.ZodTypeAny>(schema: T) =>
+  z.preprocess((v) => (v === '' ? undefined : v), schema.optional());
+
 const languageOverridesSchema = z
   .string()
   .default('{}')
@@ -43,15 +48,43 @@ const envSchema = z.object({
 
   LANGUAGE_MAP_OVERRIDES: languageOverridesSchema,
 
+  // Not z.coerce.boolean(): it reads the string "false" as true.
+  ENTITLEMENTS_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
+  LINTO_STUDIO_API_URL: unsetWhenEmpty(z.string().url()),
+  LINTO_ENTITLEMENTS_TOKEN: unsetWhenEmpty(z.string().min(1)),
+  LINTO_TWAKE_ORG_ID: unsetWhenEmpty(z.string().min(1)),
+
   LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal']).default('info'),
   HEALTH_PORT: positiveInt.default(8080),
   SHUTDOWN_TIMEOUT_MS: positiveInt.default(10_000),
 });
 
+const lintoKeys = [
+  'LINTO_STUDIO_API_URL',
+  'LINTO_ENTITLEMENTS_TOKEN',
+  'LINTO_TWAKE_ORG_ID',
+] as const;
+
+const configSchema = envSchema.superRefine((env, ctx) => {
+  if (!env.ENTITLEMENTS_ENABLED) return;
+  for (const key of lintoKeys) {
+    if (env[key] === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [key],
+        message: 'required when ENTITLEMENTS_ENABLED=true',
+      });
+    }
+  }
+});
+
 export type Config = z.infer<typeof envSchema>;
 
 export const loadConfig = (env: Record<string, string | undefined> = process.env): Config => {
-  const result = envSchema.safeParse(env);
+  const result = configSchema.safeParse(env);
   if (!result.success) {
     const issues = result.error.issues
       .map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`)
