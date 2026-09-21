@@ -85,9 +85,9 @@ Updating the deployment to pick up the new image is handled separately by whiche
 
 The shortest path:
 
-1. Add the field to the Zod schema in `src/schema.ts`.
-2. Add the column to the drizzle table in `src/schema/meet-user.ts` (type and constraints).
-3. Add the field to `UserSettingsUpdate` and to the dynamic SET builder in `src/db.ts`.
+1. Add the field to the Zod schema in `src/schemas/settings.ts`.
+2. Add the column to the drizzle table in `src/schemas/meet-user.ts` (type and constraints).
+3. Add the field to `UserSettingsUpdate` and to the dynamic SET builder in `src/clients/db.ts`.
 4. Extend `handler.ts` to copy the field from `payload` into `updates`, with any validation or mapping you need.
 5. Add tests in `tests/unit/handler.spec.ts` and `tests/integration/db.spec.ts`.
 6. Update the architecture doc's "Which fields we sync" table.

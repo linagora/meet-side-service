@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import postgres from 'postgres';
-import { createDbClient, type DbClient } from '../../src/db.js';
+import { createDbClient, type DbClient } from '../../../src/clients/db.js';
 
 const SCHEMA_SQL = `
   CREATE EXTENSION IF NOT EXISTS pgcrypto;

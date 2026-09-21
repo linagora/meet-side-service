@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import pino from 'pino';
-import type { DbClient, UserSettingsUpdate } from '../../src/db.js';
-import { handleMessage } from '../../src/handler.js';
-import { buildLanguageMapper } from '../../src/language.js';
-import { createMetrics } from '../../src/metrics.js';
+import type { DbClient, UserSettingsUpdate } from '../../../src/clients/db.js';
+import { handleMessage } from '../../../src/consumers/settings.js';
+import { buildLanguageMapper } from '../../../src/mapping/language.js';
+import { createMetrics } from '../../../src/metrics.js';
 
 const silentLogger = pino({ level: 'silent' });
 

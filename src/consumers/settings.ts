@@ -1,9 +1,9 @@
-import type { DbClient, UserSettingsUpdate } from './db.js';
-import type { LanguageMapper } from './language.js';
-import type { Logger } from './logger.js';
-import { hashEmail } from './logger.js';
-import type { Metrics, Outcome } from './metrics.js';
-import { messageEnvelopeSchema } from './schema.js';
+import type { DbClient, UserSettingsUpdate } from '../clients/db.js';
+import type { Logger } from '../logger.js';
+import { hashEmail } from '../logger.js';
+import type { LanguageMapper } from '../mapping/language.js';
+import type { Metrics, Outcome } from '../metrics.js';
+import { messageEnvelopeSchema } from '../schemas/settings.js';
 
 export type HandlerResult =
   | { status: 'ok'; outcome: Exclude<Outcome, 'db_error'> }

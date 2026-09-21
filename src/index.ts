@@ -1,9 +1,9 @@
+import { createDbClient } from './clients/db.js';
 import { loadConfig } from './config.js';
-import { createConsumer } from './consumer.js';
-import { createDbClient } from './db.js';
+import { createConsumer } from './consumers/index.js';
 import { createHealthServer } from './health.js';
-import { buildLanguageMapper } from './language.js';
 import { logger } from './logger.js';
+import { buildLanguageMapper } from './mapping/language.js';
 import { createMetrics } from './metrics.js';
 
 const main = async (): Promise<void> => {
