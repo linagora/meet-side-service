@@ -22,14 +22,14 @@ export const createMetrics = (): Metrics => {
   collectDefaultMetrics({ register: registry });
 
   const messagesProcessed = new Counter({
-    name: 'mcs_messages_processed_total',
+    name: 'mss_messages_processed_total',
     help: 'Total messages processed by outcome',
     labelNames: ['outcome'] as const,
     registers: [registry],
   });
 
   const messageLatency = new Histogram({
-    name: 'mcs_message_latency_seconds',
+    name: 'mss_message_latency_seconds',
     help: 'Message processing latency in seconds',
     labelNames: ['outcome'] as const,
     buckets: [0.005, 0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 5],
@@ -37,7 +37,7 @@ export const createMetrics = (): Metrics => {
   });
 
   const dbErrors = new Counter({
-    name: 'mcs_db_errors_total',
+    name: 'mss_db_errors_total',
     help: 'Total database errors',
     registers: [registry],
   });

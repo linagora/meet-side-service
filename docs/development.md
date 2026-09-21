@@ -68,7 +68,7 @@ The pre-merge gate is: typecheck clean, lint clean, unit tests pass. Integration
 ## Building the image
 
 ```sh
-docker build -t meet-common-settings:dev .
+docker build -t meet-side-service:dev .
 ```
 
 The Dockerfile is a two-stage build. The runtime is `gcr.io/distroless/nodejs20-debian12:nonroot` — no shell, no package manager, no root user. If you need to debug a running container, you can swap the base image temporarily to `node:20-bookworm-slim` for that build.

@@ -1,6 +1,6 @@
 # Running the service locally
 
-This walks through running `meet-common-settings` against a self-contained RabbitMQ + PostgreSQL stack on your machine, seeding a few users, and publishing a test message to watch the full path end-to-end. Useful for smoke-testing a change before pushing.
+This walks through running `meet-side-service` against a self-contained RabbitMQ + PostgreSQL stack on your machine, seeding a few users, and publishing a test message to watch the full path end-to-end. Useful for smoke-testing a change before pushing.
 
 The full Meet stack is not required. We reproduce just the `meet_user` table from Meet's `0001_initial.py` migration — that's everything this service touches.
 
@@ -26,11 +26,11 @@ services:
       POSTGRES_USER: meet
       POSTGRES_PASSWORD: meet
     ports:
-      - "5433:5432"
+      - '5433:5432'
     volumes:
       - ./init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U meet -d meet"]
+      test: ['CMD-SHELL', 'pg_isready -U meet -d meet']
       interval: 1s
       timeout: 3s
       retries: 30
@@ -38,10 +38,10 @@ services:
   rabbitmq:
     image: rabbitmq:3-management
     ports:
-      - "5673:5672"
-      - "15673:15672"
+      - '5673:5672'
+      - '15673:15672'
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      test: ['CMD', 'rabbitmq-diagnostics', 'ping']
       interval: 2s
       timeout: 5s
       retries: 30
@@ -99,7 +99,7 @@ RabbitMQ management UI is at http://localhost:15673 (`guest` / `guest`).
 
 ## Run the service
 
-From the `meet-common-settings` checkout:
+From the `meet-side-service` checkout:
 
 ```sh
 RABBITMQ_URL=amqp://guest:guest@localhost:5673 \
@@ -126,10 +126,10 @@ Probe the HTTP endpoints from another terminal:
 ```sh
 curl -s -o /dev/null -w "healthz: %{http_code}\n" http://localhost:8090/healthz
 curl -s -o /dev/null -w "readyz: %{http_code}\n"  http://localhost:8090/readyz
-curl -s http://localhost:8090/metrics | grep mcs_
+curl -s http://localhost:8090/metrics | grep mss_
 ```
 
-`/readyz` should be `200`; `/metrics` should show all the `mcs_*` counters at zero.
+`/readyz` should be `200`; `/metrics` should show all the `mss_*` counters at zero.
 
 ## Publish a test message
 
@@ -137,7 +137,7 @@ A one-file Node script (anywhere you like):
 
 ```js
 // publish.mjs
-import { RabbitMQClient } from '<absolute-path-to>/meet-common-settings/node_modules/@linagora/rabbitmq-client/dist/index.js';
+import { RabbitMQClient } from '<absolute-path-to>/meet-side-service/node_modules/@linagora/rabbitmq-client/dist/index.js';
 
 const client = new RabbitMQClient({ url: 'amqp://guest:guest@localhost:5673' });
 await client.init();
@@ -178,17 +178,17 @@ Alice's row should now show `fr-fr` / `Europe/Berlin` with a fresh `updated_at`.
 
 ## Scenarios worth exercising
 
-Vary the payload to walk every outcome label. Each row corresponds to a unique `outcome` you'll see in the log and in `mcs_messages_processed_total`.
+Vary the payload to walk every outcome label. Each row corresponds to a unique `outcome` you'll see in the log and in `mss_messages_processed_total`.
 
-| Payload | Expected outcome |
-|---|---|
-| `{ email: 'alice@example.com', language: 'fr', timezone: 'Europe/Berlin' }` | `updated` (both fields) |
-| `{ email: 'bob@example.com', language: 'en' }` | `updated` (language only) |
-| `{ email: 'carol@example.com', timezone: 'Asia/Tokyo' }` | `updated` (timezone only) |
-| `{ email: 'ghost@example.com', language: 'de' }` | `unknown_user` (no row matches) |
-| `{ email: 'alice@example.com', language: 'es' }` | `no_syncable_fields` (Spanish has no Django mapping; no timezone provided) |
-| `{ language: 'fr' }` (no email) | `no_email` |
-| `{ foo: 'bar' }` (no payload) | `invalid_payload` |
+| Payload                                                                     | Expected outcome                                                           |
+| --------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `{ email: 'alice@example.com', language: 'fr', timezone: 'Europe/Berlin' }` | `updated` (both fields)                                                    |
+| `{ email: 'bob@example.com', language: 'en' }`                              | `updated` (language only)                                                  |
+| `{ email: 'carol@example.com', timezone: 'Asia/Tokyo' }`                    | `updated` (timezone only)                                                  |
+| `{ email: 'ghost@example.com', language: 'de' }`                            | `unknown_user` (no row matches)                                            |
+| `{ email: 'alice@example.com', language: 'es' }`                            | `no_syncable_fields` (Spanish has no Django mapping; no timezone provided) |
+| `{ language: 'fr' }` (no email)                                             | `no_email`                                                                 |
+| `{ foo: 'bar' }` (no payload)                                               | `invalid_payload`                                                          |
 
 The `language` codes the service understands by default are `en`, `fr`, `nl`, `de`, `ru`, `vi` (each maps to the Django `XX-XX` form). Anything else is dropped unless you set `LANGUAGE_MAP_OVERRIDES`.
 
