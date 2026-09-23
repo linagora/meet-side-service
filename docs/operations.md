@@ -19,9 +19,9 @@ GRANT SELECT (email), UPDATE (language, timezone, updated_at) ON meet_user TO me
 
 The user in `RABBITMQ_URL` needs:
 
-- `read` on the `settings` exchange.
-- `read`, `write`, and `configure` on the `meet.user_settings` queue (the service declares the queue on startup).
-- `read` and `write` on the dead-letter exchange and queue that `@linagora/rabbitmq-client` auto-declares (the names follow the library's convention; check its docs if you provision RabbitMQ permissions via a separate tool).
+- `configure` and `read` on the `settings`, `billing`, `b2b` and `auth` exchanges and their dead-letter twins `settings.dlx`, `billing.dlx`, `b2b.dlx` and `auth.dlx`. The service declares all of them on startup and binds its queues to them.
+- `configure`, `write` and `read` on the `meet.user_settings` queue, the five entitlement queues (`meet.subscription.changed`, `meet.domain.subscription.changed`, `meet.domain.user.deleted`, `meet.user.deletion.requested`, `meet.domain.organization.deleted`) and their `.dlq` twins, which the service also declares on startup.
+- The five entitlement queues and their exchanges are only declared when `ENTITLEMENTS_ENABLED=true`. A missing permission there fails the startup of the whole service, settings sync included, so grant them before switching it on.
 
 ## What to monitor
 
@@ -39,6 +39,7 @@ The service exposes these on `/metrics`:
 - `mss_messages_processed_total{outcome}` — counter, one increment per processed message.
 - `mss_message_latency_seconds{outcome}` — histogram of per-message wall time including the database call.
 - `mss_db_errors_total` — counter, increments on any database exception (transient or permanent).
+- `mss_entitlement_calls_total{event,outcome}` — counter, one increment per handler attempt. `outcome` is `applied`, `ignored` (LinTO already holds newer state), `invalid` or `failed`. The last two are retried up to `RABBITMQ_MAX_RETRIES` times, each attempt counted, then dead-lettered, so one bad message adds that many.
 - Plus the default Node.js process metrics (heap, event loop lag, GC).
 
 Suggested alerts:
@@ -70,7 +71,7 @@ In order of likelihood:
 
 1. **Browser cache.** Meet's frontend caches language. Reload.
 2. **The user has not logged into Meet yet.** Without a `meet_user` row, the UPDATE matches zero rows. Log line: `"no Meet user matched; skipping"`. The user's settings will apply on first login.
-3. **The language code in common-settings is one we don't map.** Look for `"language code has no Django mapping; skipping language update"`. Meet currently only supports `en-us`, `fr-fr`, `nl-nl`, `de-de`, `ru-ru`, `vi-vn`. To add another, override `LANGUAGE_MAP_OVERRIDES` (see [configuration](#configuration)) or add it to `src/language.ts`.
+3. **The language code in common-settings is one we don't map.** Look for `"language code has no Django mapping; skipping language update"`. Meet currently only supports `en-us`, `fr-fr`, `nl-nl`, `de-de`, `ru-ru`, `vi-vn`. To add another, override `LANGUAGE_MAP_OVERRIDES` (see [configuration](#configuration)) or add it to `src/mapping/language.ts`.
 4. **The service is not consuming.** Check `/readyz` and the broker UI's consumer count for `meet.user_settings`.
 
 ### Postgres is down
@@ -88,7 +89,7 @@ You will see `mss_messages_processed_total{outcome="unexpected_error"}` climb sh
 
 Fix path:
 
-- Roll back to the previous image while you update `src/db.ts` to match the new column name (or update the SQL).
+- Roll back to the previous image while you update `src/clients/db.ts` to match the new column name (or update the SQL).
 - Release a new image, redeploy.
 - If you have the DLQ wired into something durable, you can also replay the lost window from there.
 
@@ -117,6 +118,17 @@ All configuration is via environment variables. Defaults are listed in [`.env.ex
 | `LOG_LEVEL`              | no       | `info`                  | pino level: `trace`, `debug`, `info`, `warn`, `error`, `fatal`.                                                                                                            |
 | `HEALTH_PORT`            | no       | `8080`                  | Port for `/healthz`, `/readyz`, `/metrics`.                                                                                                                                |
 | `SHUTDOWN_TIMEOUT_MS`    | no       | `10000`                 | Grace period on SIGTERM. The broker client uses the same value as its `closeTimeout`, so this is how long we'll wait for in-flight handlers to finish before forcing exit. |
+
+The entitlement consumers are off unless `ENTITLEMENTS_ENABLED=true` (only `true` and `false` are accepted). When on, three more are required, and the service refuses to start without them:
+
+- `LINTO_STUDIO_API_URL`: base URL of LinTO studio-api.
+- `LINTO_ENTITLEMENTS_TOKEN`: bearer key, admin of the root organization and carrying ORGANIZATION_INITIATOR, which the domains route requires.
+- `LINTO_TWAKE_ORG_ID`: Twake's root organization in LinTO Studio.
+
+## Turning entitlements on or off
+
+- While off, the five entitlement queues are neither declared nor consumed, so plan changes and deletions in that window never reach LinTO. Turning it on does not catch up: nothing re-emits current plans, so existing subscribers only get an entitlement on their next plan change.
+- Once turned on, the queues exist on the broker. Turning it off again leaves them bound and filling with no consumer. That is fine for a pause, since the backlog is applied on the next start. To retire the feature, delete the five `meet.*` entitlement queues listed under [RabbitMQ permissions](#rabbitmq-permissions).
 
 ## Restarts and single-consumer invariant
 

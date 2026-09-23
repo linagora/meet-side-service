@@ -1,7 +1,9 @@
 import { RabbitMQClient } from '@linagora/rabbitmq-client';
-import type { Config } from './config.js';
-import { handleMessage, type HandlerDeps } from './handler.js';
-import type { Logger } from './logger.js';
+import type { LintoClient } from '../clients/linto.js';
+import type { Config } from '../config.js';
+import type { Logger } from '../logger.js';
+import { entitlementBindings, handleEntitlement } from './entitlements.js';
+import { handleMessage, type HandlerDeps } from './settings.js';
 
 export interface Consumer {
   start(): Promise<void>;
@@ -12,6 +14,9 @@ export interface Consumer {
 export interface ConsumerDeps extends HandlerDeps {
   config: Config;
   logger: Logger;
+  // Absent when ENTITLEMENTS_ENABLED is off: the entitlement queues are then
+  // neither declared nor consumed.
+  linto?: LintoClient;
 }
 
 export const createConsumer = (deps: ConsumerDeps): Consumer => {
@@ -49,6 +54,23 @@ export const createConsumer = (deps: ConsumerDeps): Consumer => {
           }
         },
       );
+      const { linto } = deps;
+      if (linto) {
+        for (const binding of entitlementBindings) {
+          await client.subscribe(
+            binding.exchange,
+            binding.routingKey,
+            `meet.${binding.routingKey}`,
+            (message, properties) =>
+              handleEntitlement(binding, message, properties, { ...deps, linto }),
+            // Ordering holds only one message at a time, whatever RABBITMQ_PREFETCH
+            // the settings queue runs with.
+            { concurrency: 1 },
+          );
+        }
+      } else {
+        logger.info('entitlement consumers disabled');
+      }
       subscribed = true;
       logger.info('consumer subscribed and processing messages');
     },

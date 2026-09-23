@@ -14,6 +14,7 @@ export interface Metrics {
   messagesProcessed: Counter<'outcome'>;
   messageLatency: Histogram<'outcome'>;
   dbErrors: Counter<string>;
+  entitlementCalls: Counter<'event' | 'outcome'>;
   observe(outcome: Outcome, latencyMs: number): void;
 }
 
@@ -42,11 +43,19 @@ export const createMetrics = (): Metrics => {
     registers: [registry],
   });
 
+  const entitlementCalls = new Counter({
+    name: 'mss_entitlement_calls_total',
+    help: 'Entitlement handler attempts by routing key and outcome (applied, ignored, invalid, failed)',
+    labelNames: ['event', 'outcome'] as const,
+    registers: [registry],
+  });
+
   return {
     registry,
     messagesProcessed,
     messageLatency,
     dbErrors,
+    entitlementCalls,
     observe(outcome, latencyMs) {
       messagesProcessed.labels(outcome).inc();
       messageLatency.labels(outcome).observe(latencyMs / 1000);

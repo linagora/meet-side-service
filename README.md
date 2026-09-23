@@ -15,6 +15,7 @@ Sidecar service that consumes user settings update messages from the Twake Workp
   ```
 - Only `language` and `timezone` are synced. `language` is mapped from ISO 639-1 (`en`, `fr`, ...) to Django's `LANGUAGES` codes (`en-us`, `fr-fr`, `nl-nl`, `de-de`).
 - Unknown users (never logged into Meet) are skipped silently.
+- It also writes Meet entitlements (transcription, recording) to LinTO Studio from billing and deletion events, one queue and one Studio call per event. See [ADR 061](https://github.com/linagora/twake-workplace-private/pull/1745) and [architecture](docs/architecture.md#entitlements).
 - The service holds no state. Re-applying the same payload is a no-op; the queue's natural ordering plus a single consumer make replays safe.
 
 ## Configuration
@@ -35,15 +36,21 @@ All configuration is via environment variables. See `.env.example` for defaults.
 | `HEALTH_PORT`            | no       | `8080`                  | HTTP port for probes and metrics                   |
 | `SHUTDOWN_TIMEOUT_MS`    | no       | `10000`                 | Grace period on SIGTERM                            |
 
+The entitlement consumers are off unless `ENTITLEMENTS_ENABLED=true`. When on, three more are required:
+
+- `LINTO_STUDIO_API_URL`: base URL of LinTO studio-api.
+- `LINTO_ENTITLEMENTS_TOKEN`: bearer key, admin of the root organization and carrying ORGANIZATION_INITIATOR.
+- `LINTO_TWAKE_ORG_ID`: Twake's root organization in LinTO Studio.
+
 The Postgres role used by the service should be granted only `SELECT, UPDATE (language, timezone, updated_at) ON meet_user`. No `INSERT` or `DELETE` is performed.
 
 ## HTTP endpoints
 
-| Path           | Purpose                                                                                                                                  |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /healthz` | Liveness: returns 200 while the process is alive                                                                                         |
-| `GET /readyz`  | Readiness: 200 once the consumer is connected and the database responds to `SELECT 1`                                                    |
-| `GET /metrics` | Prometheus metrics (process metrics + `mss_messages_processed_total{outcome=...}`, `mss_message_latency_seconds`, `mss_db_errors_total`) |
+| Path           | Purpose                                                                                                                                                                                    |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `GET /healthz` | Liveness: returns 200 while the process is alive                                                                                                                                           |
+| `GET /readyz`  | Readiness: 200 once the consumer is connected and the database responds to `SELECT 1`                                                                                                      |
+| `GET /metrics` | Prometheus metrics (process metrics + `mss_messages_processed_total{outcome=...}`, `mss_message_latency_seconds`, `mss_db_errors_total`, `mss_entitlement_calls_total{event,outcome=...}`) |
 
 ## Development
 
