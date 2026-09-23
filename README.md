@@ -1,76 +1,22 @@
 # meet-side-service
 
-Sidecar service that consumes user settings update messages from the Twake Workplace common-settings RabbitMQ exchange and applies the changes to Meet's PostgreSQL database.
+Sidecar service for Meet. It consumes Twake Workplace events from RabbitMQ and applies them where Meet reads them:
 
-## What it does
+- User settings (language, timezone) from common-settings go to Meet's PostgreSQL database.
+- Plan entitlements (transcription, recording) go to LinTO Studio. This part is off unless `ENTITLEMENTS_ENABLED=true`.
 
-- Subscribes to the `settings` topic exchange on RabbitMQ with routing key `user.settings.updated`.
-- For each message, matches the user by `payload.email` (case-insensitive) and runs:
-  ```sql
-  UPDATE meet_user
-     SET language = COALESCE($1, language),
-         timezone = COALESCE($2, timezone),
-         updated_at = NOW()
-   WHERE email ILIKE $3
-  ```
-- Only `language` and `timezone` are synced. `language` is mapped from ISO 639-1 (`en`, `fr`, ...) to Django's `LANGUAGES` codes (`en-us`, `fr-fr`, `nl-nl`, `de-de`).
-- Unknown users (never logged into Meet) are skipped silently.
-- It also writes Meet entitlements (transcription, recording) to LinTO Studio from billing and deletion events, one queue and one Studio call per event. See [ADR 061](https://github.com/linagora/twake-workplace-private/pull/1745) and [architecture](docs/architecture.md#entitlements).
-- The service holds no state. Re-applying the same payload is a no-op; the queue's natural ordering plus a single consumer make replays safe.
-
-## Configuration
-
-All configuration is via environment variables. See `.env.example` for defaults.
-
-| Variable                 | Required | Default                 | Purpose                                            |
-| ------------------------ | -------- | ----------------------- | -------------------------------------------------- |
-| `RABBITMQ_URL`           | yes      | —                       | AMQP DSN                                           |
-| `RABBITMQ_EXCHANGE`      | no       | `settings`              | Topic exchange to bind to                          |
-| `RABBITMQ_ROUTING_KEY`   | no       | `user.settings.updated` | Binding key                                        |
-| `RABBITMQ_QUEUE`         | no       | `meet.user_settings`    | Consumer queue name                                |
-| `RABBITMQ_PREFETCH`      | no       | `1`                     | QoS prefetch count                                 |
-| `DATABASE_URL`           | yes      | —                       | PostgreSQL DSN for the Meet database               |
-| `MEET_USER_TABLE`        | no       | `meet_user`             | User table override (defensive)                    |
-| `LANGUAGE_MAP_OVERRIDES` | no       | `{}`                    | JSON map of additional ISO → Django language codes |
-| `LOG_LEVEL`              | no       | `info`                  | pino log level                                     |
-| `HEALTH_PORT`            | no       | `8080`                  | HTTP port for probes and metrics                   |
-| `SHUTDOWN_TIMEOUT_MS`    | no       | `10000`                 | Grace period on SIGTERM                            |
-
-The entitlement consumers are off unless `ENTITLEMENTS_ENABLED=true`. When on, three more are required:
-
-- `LINTO_STUDIO_API_URL`: base URL of LinTO studio-api.
-- `LINTO_ENTITLEMENTS_TOKEN`: bearer key, admin of the root organization and carrying ORGANIZATION_INITIATOR.
-- `LINTO_TWAKE_ORG_ID`: Twake's root organization in LinTO Studio.
-
-The Postgres role used by the service should be granted only `SELECT, UPDATE (language, timezone, updated_at) ON meet_user`. No `INSERT` or `DELETE` is performed.
-
-## HTTP endpoints
-
-| Path           | Purpose                                                                                                                                                                                    |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `GET /healthz` | Liveness: returns 200 while the process is alive                                                                                                                                           |
-| `GET /readyz`  | Readiness: 200 once the consumer is connected and the database responds to `SELECT 1`                                                                                                      |
-| `GET /metrics` | Prometheus metrics (process metrics + `mss_messages_processed_total{outcome=...}`, `mss_message_latency_seconds`, `mss_db_errors_total`, `mss_entitlement_calls_total{event,outcome=...}`) |
-
-## Development
+## Quick start
 
 ```sh
 npm install
 cp .env.example .env  # then edit
 npm run dev
+npm run test:unit  # npm test also runs the integration tests, which need Docker
 ```
 
-Tests:
+## Documentation
 
-```sh
-npm run test:unit         # fast, no docker
-npm run test:integration  # requires docker (testcontainers)
-npm test                  # both
-```
-
-## Further reading
-
-- [docs/architecture.md](docs/architecture.md) — what the service does, message flow, design rationale.
-- [docs/operations.md](docs/operations.md) — provisioning dependencies, monitoring, alerting, troubleshooting.
-- [docs/development.md](docs/development.md) — local setup, tests, releasing.
-- [docs/running-locally.md](docs/running-locally.md) — end-to-end smoke test against Docker postgres + rabbitmq.
+- [Architecture](docs/architecture.md): what the service does, message flow, design rationale. Entitlements are covered in [their own section](docs/architecture.md#entitlements) and in [ADR 061](https://github.com/linagora/twake-workplace-private/pull/1745).
+- [Operations](docs/operations.md): [configuration](docs/operations.md#configuration), database and RabbitMQ permissions, endpoints and metrics, troubleshooting.
+- [Development](docs/development.md): project layout, tests, releasing.
+- [Running locally](docs/running-locally.md): end-to-end smoke test against Docker PostgreSQL and RabbitMQ.
