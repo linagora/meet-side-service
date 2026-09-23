@@ -21,23 +21,29 @@ For a development RabbitMQ + Postgres, the easiest option is the docker-compose 
 src/
   index.ts        Process entrypoint: load config, wire deps, run consumer + health server, handle SIGTERM
   config.ts       Env-var parsing with Zod
-  consumer.ts     RabbitMQ subscribe loop, ack/throw semantics
-  handler.ts      Per-message logic. The interesting part.
-  db.ts           Drizzle ORM (postgres-js) wrapper around the single UPDATE
-  schema.ts       Zod schema for the message envelope and payload
-  schema/
-    meet-user.ts  Drizzle table definition — the subset of Meet's meet_user we touch
-  language.ts     ISO 639-1 → Django LANGUAGES mapping
+  consumers/
+    index.ts      RabbitMQ subscriptions, ack/throw semantics
+    settings.ts   Per-message settings logic
+    entitlements.ts  Entitlement bindings and handler
+  clients/
+    db.ts         Drizzle ORM (postgres-js) wrapper around the single UPDATE
+    linto.ts      LinTO Studio entitlements API client
+  schemas/
+    settings.ts   Zod schema for the settings message envelope and payload
+    entitlements.ts  Zod schemas for the entitlement events
+    meet-user.ts  Drizzle table definition, the subset of Meet's meet_user we touch
+  mapping/
+    language.ts   ISO 639-1 → Django LANGUAGES mapping
   metrics.ts      prom-client registry and counters
   logger.ts       pino instance plus email hashing helper
   health.ts       HTTP server for /healthz, /readyz, /metrics
 
 tests/
-  unit/           Fast, no docker. Pure-function tests with mocked db.
-  integration/   testcontainers spin up Postgres; verifies SQL behaviour.
+  unit/           Fast, no docker. Pure-function tests with mocked db and LinTO.
+  integration/    testcontainers spin up Postgres; verifies SQL behaviour.
 ```
 
-The shape is deliberately flat. Every file has one job and the call graph is shallow. If you find yourself adding a sixth or seventh kind of dependency, the abstraction is probably wrong.
+Every file has one job and the call graph is shallow. If you find yourself adding a sixth or seventh kind of dependency, the abstraction is probably wrong.
 
 ## Testing
 
@@ -88,8 +94,8 @@ The shortest path:
 1. Add the field to the Zod schema in `src/schemas/settings.ts`.
 2. Add the column to the drizzle table in `src/schemas/meet-user.ts` (type and constraints).
 3. Add the field to `UserSettingsUpdate` and to the dynamic SET builder in `src/clients/db.ts`.
-4. Extend `handler.ts` to copy the field from `payload` into `updates`, with any validation or mapping you need.
-5. Add tests in `tests/unit/handler.spec.ts` and `tests/integration/db.spec.ts`.
+4. Extend `src/consumers/settings.ts` to copy the field from `payload` into `updates`, with any validation or mapping you need.
+5. Add tests in `tests/unit/consumers/settings.spec.ts` and `tests/integration/clients/db.spec.ts`.
 6. Update the architecture doc's "Which fields we sync" table.
 7. Add the column to the PostgreSQL grant in the [operations](operations.md#database-role) doc and in production.
 
