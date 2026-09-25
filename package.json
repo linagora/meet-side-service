@@ -1,6 +1,6 @@
 {
   "name": "meet-side-service",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Sidecar that consumes user settings update messages from RabbitMQ and applies them to Meet's PostgreSQL database",
   "type": "module",
