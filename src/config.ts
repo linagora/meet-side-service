@@ -13,7 +13,7 @@ const languageOverridesSchema = z
   .transform((raw, ctx) => {
     try {
       const parsed = JSON.parse(raw);
-      const result = z.record(z.string()).safeParse(parsed);
+      const result = z.record(z.string(), z.string()).safeParse(parsed);
       if (!result.success) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
