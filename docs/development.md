@@ -27,7 +27,6 @@ src/
     liveness.ts   Stuck handler and lost connection detection
     http.ts       Fastify servers for the probes and for /metrics
     metrics.ts    prom-client registry and counters
-    logger.ts     pino instance plus email hashing helper
   product/
     port.ts       The interfaces the handlers depend on
     fake.ts       In-memory Meet database and LinTO for unit tests

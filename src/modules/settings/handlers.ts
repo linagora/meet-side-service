@@ -1,6 +1,6 @@
+import { hashEmail } from '@linagora/twake-node-telemetry';
+import type { Logger } from 'pino';
 import { MalformedEventError, RejectedEventError } from '../../events/errors.js';
-import type { Logger } from '../../infra/logger.js';
-import { hashEmail } from '../../infra/logger.js';
 import type { DbClient, SettingsWrite, UserSettingsUpdate } from '../../product/port.js';
 import type { LanguageMapper } from './language.js';
 import { messageEnvelopeSchema } from './schema.js';

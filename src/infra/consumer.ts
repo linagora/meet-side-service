@@ -1,5 +1,6 @@
 import { RabbitMQClient } from '@linagora/rabbitmq-client';
 import { setTimeout } from 'node:timers/promises';
+import type { Logger } from 'pino';
 import type { Config } from '../config.js';
 import { dropMalformed } from '../events/errors.js';
 import { drainLegacyQueues } from '../events/legacy.js';
@@ -15,7 +16,6 @@ import {
 import type { HandlerDeps } from '../modules/settings/handlers.js';
 import type { LintoClient } from '../product/port.js';
 import { createLiveness } from './liveness.js';
-import type { Logger } from './logger.js';
 import type { Metrics } from './metrics.js';
 
 export interface Consumer {

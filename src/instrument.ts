@@ -1,4 +1,4 @@
-import * as Sentry from '@sentry/node';
+import { initSentry } from '@linagora/twake-node-telemetry/sentry';
 import { readFileSync } from 'node:fs';
 import { URL } from 'node:url';
 
@@ -7,10 +7,4 @@ const { name, version } = JSON.parse(
 ) as { name: string; version: string };
 
 // Loaded with `node --import` ahead of main.js. Sends nothing without SENTRY_DSN.
-Sentry.init({
-  dsn: process.env.SENTRY_DSN || undefined,
-  environment: process.env.SENTRY_ENVIRONMENT || undefined,
-  release: `${name}@${version}`,
-  initialScope: { tags: { service: name } },
-  integrations: [Sentry.pinoIntegration({ error: { levels: ['error', 'fatal'] } })],
-});
+initSentry({ service: name, version });

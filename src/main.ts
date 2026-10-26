@@ -1,13 +1,15 @@
+import { createLogger } from '@linagora/twake-node-telemetry';
 import * as Sentry from '@sentry/node';
 import { loadConfig } from './config.js';
 import { createConsumer } from './infra/consumer.js';
 import { createOpsServers } from './infra/http.js';
-import { logger } from './infra/logger.js';
 import { createMetrics } from './infra/metrics.js';
 import { buildLanguageMapper } from './modules/settings/language.js';
 import { createLintoClient } from './product/api.js';
 import { createDbClient } from './product/db.js';
 import type { LintoClient } from './product/port.js';
+
+const logger = createLogger({ service: 'meet-side-service' });
 
 // process.exit drops what Sentry has not sent yet.
 const exit = async (code: number): Promise<never> => {
@@ -93,10 +95,13 @@ const main = async (): Promise<void> => {
     logger.fatal({ err }, 'uncaught exception');
     void shutdown('uncaughtException');
   });
-  process.on('unhandledRejection', (reason) => {
-    logger.fatal({ reason }, 'unhandled rejection');
-    void shutdown('unhandledRejection');
-  });
+  // With a DSN, Sentry owns the exit: it reports the rejection, then exits with code 1.
+  if (!Sentry.isEnabled()) {
+    process.on('unhandledRejection', (reason) => {
+      logger.fatal({ err: reason }, 'unhandled rejection');
+      void shutdown('unhandledRejection');
+    });
+  }
 };
 
 main().catch(async (err) => {

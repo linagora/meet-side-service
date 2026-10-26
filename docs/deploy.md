@@ -89,7 +89,7 @@ Suggested alerts:
 
 ## Logs and errors
 
-Logs are JSON lines on stdout. Each event logs one line from its handler, with:
+Logs are JSON lines on stdout, written by [`@linagora/twake-node-telemetry`](https://github.com/linagora/twake-libs/tree/%40linagora/twake-node-telemetry%401.1.0/packages/twake-node-telemetry): `service`, the level as text and an ISO `time` on every line, and the values of `authorization`, `cookie`, `access_token`, `openid_token`, `password` and `email` masked. Each event logs one line from its handler, with:
 
 - `requestId` and `version` for settings events, from the event.
 - `emailHash` or `subjectHash`: the first 16 hex characters of the SHA-256 of the lowercased email or domain, to follow a user without logging the address.
@@ -97,7 +97,7 @@ Logs are JSON lines on stdout. Each event logs one line from its handler, with:
 
 `@linagora/rabbitmq-client` logs its connections, retries and dead letters through the same logger.
 
-With `SENTRY_DSN` set, every `error` and `fatal` line becomes a Sentry event, tagged `service:meet-side-service`, with the release `meet-side-service@<version>`. This includes the client's "Handler failed" line, so an outage of Postgres or LinTO sends one event per failed attempt, grouped into one issue.
+With `SENTRY_DSN` set, every `error` and `fatal` line becomes a Sentry event, tagged `service:meet-side-service`, with the release `meet-side-service@<version>`, and without request data (headers, bodies, query strings, database parameters). This includes the client's "Handler failed" line, so an outage of Postgres or LinTO sends one event per failed attempt, grouped into one issue. Other lines stay out of Sentry. On an unhandled promise rejection, Sentry reports it and exits with code 1, without the graceful shutdown: RabbitMQ delivers the unacknowledged message again. Without `SENTRY_DSN`, the service logs it and shuts down gracefully.
 
 ## Replicas
 

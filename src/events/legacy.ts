@@ -1,6 +1,6 @@
 import type { RabbitMQMessageProperties } from '@linagora/rabbitmq-client';
 import amqp from 'amqplib';
-import type { Logger } from '../infra/logger.js';
+import type { Logger } from 'pino';
 import { MalformedEventError, RejectedEventError } from './errors.js';
 
 interface LegacyQueue {

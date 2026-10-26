@@ -1,7 +1,8 @@
 import type { RabbitMQMessageProperties } from '@linagora/rabbitmq-client';
+import { hashEmail } from '@linagora/twake-node-telemetry';
+import type { Logger } from 'pino';
 import { z } from 'zod';
 import { MalformedEventError, RejectedEventError } from '../../events/errors.js';
-import { hashEmail, type Logger } from '../../infra/logger.js';
 import type { LintoClient } from '../../product/port.js';
 import {
   domainOrganizationDeletedSchema,

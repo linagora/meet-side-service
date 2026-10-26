@@ -1,6 +1,6 @@
 import Fastify, { LogController, type FastifyReply } from 'fastify';
+import type { Logger } from 'pino';
 import type { Consumer } from './consumer.js';
-import type { Logger } from './logger.js';
 import type { Metrics } from './metrics.js';
 
 type Probed = Pick<Consumer, 'isReady' | 'isLive'>;
