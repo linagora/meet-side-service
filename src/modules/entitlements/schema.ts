@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 // The Cloudery publishes every app it enables under `features`; only `meet` is ours.
-const planFeatures = z.object({ meet: z.record(z.unknown()).optional() }).passthrough();
+const planFeatures = z.object({ meet: z.record(z.string(), z.unknown()).optional() }).passthrough();
 
 export const subscriptionChangedSchema = z.object({
   twakeId: z.string().min(1),
